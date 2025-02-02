@@ -1,0 +1,98 @@
+/* Modern CSS Reset */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Variables for easy customization */
+:root {
+    --text-color: #000;
+    --link-color: #000;
+    --link-hover-color: #2e8b57;
+    --background-color: #faebd7;
+    --font-main: system-ui, -apple-system, sans-serif;
+}
+
+body {
+    font-family: var(--font-main);
+    line-height: 1.6;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    display: flex;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+/* Navigation */
+nav {
+    width: 200px;
+    padding-right: 2rem;
+}
+
+nav ul {
+    list-style: none;
+    position: fixed;
+}
+
+nav li {
+    margin-bottom: 1rem;
+}
+
+nav a {
+    text-decoration: none;
+    color: var(--link-color);
+}
+
+nav a:hover {
+    color: var(--link-hover-color);
+}
+
+/* Main content */
+main {
+    flex: 1;
+    max-width: 600px;
+    padding-left: 2rem;
+    border-left: 1px solid #eee;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+    body {
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    nav {
+        width: 100%;
+        padding-right: 0;
+        margin-bottom: 2rem;
+    }
+
+    nav ul {
+        position: static;
+    }
+
+    main {
+        padding-left: 0;
+        border-left: none;
+        border-top: 1px solid #eee;
+        padding-top: 2rem;
+    }
+}
+
+/* Main content formatting */
+main p {
+    margin-bottom: 1.5rem;  /* Space after each paragraph */
+}
+
+main p:last-child {
+    margin-bottom: 0;
+}
+
+/* Must be last - handles FOUC */
+html {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.1s ease;
+}
