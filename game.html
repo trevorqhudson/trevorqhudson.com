@@ -195,6 +195,14 @@ const gameWidth = 1000;
 const gameHeight = 800;
 
 let score = 0;
+let messageIndex = 0; // Index for encouraging messages
+const encouragingMessages = [
+  "good", "smokin'", "caffeinated",
+  "whoa there", "overstimulated", "en fuego", "calm down", "remember to blink",
+  "it's too fast", "oh dear", "saucer sniper", "twitchy boi", "ahhhhhhhh",
+  "impressive...", "don't stop now", "ok you can stop", "knees weak arms heavy", "deranged",
+  "power overwhelming", "NEO"
+];
 let missedCoins = 0;
 const maxMisses = 3;
 let coinsSinceLastFreeze = 0;
@@ -214,6 +222,62 @@ function updateSpeeds() {
   saucerSpeed = speed * 2;
 }
 updateSpeeds();
+
+// Function to flash messages
+function flashMessage(text) {
+  const message = document.createElement("div");
+  message.textContent = text;
+  message.style.position = "absolute";
+  message.style.top = "50%";
+  message.style.left = "50%";
+  message.style.transform = "translate(-50%, -50%)";
+  message.style.fontSize = "60px"; // Large text
+  message.style.fontWeight = "bold";
+  message.style.color = "rgba(255, 255, 255, 0.8)"; // White with slight transparency
+  message.style.textShadow = "2px 2px 4px rgba(0, 0, 0, 0.5)"; // Subtle shadow
+  message.style.pointerEvents = "none"; // Make it non-interactive
+  message.style.zIndex = "101"; // Ensure it's above other elements
+  message.style.opacity = "0";
+  message.style.transition = "opacity 0.4s ease-out";
+  game.appendChild(message);
+
+  // Fade in
+  requestAnimationFrame(() => {
+    message.style.opacity = "1";
+  });
+
+  // Fade out after a delay
+  setTimeout(() => {
+    message.style.opacity = "0";
+    // Remove the element after fade out transition completes
+    setTimeout(() => {
+      if (game.contains(message)) {
+          game.removeChild(message);
+      }
+    }, 400); // Match the transition duration
+  }, 1200); // How long the message stays visible at full opacity
+}
+
+// Function to update score and handle flashing messages
+function updateScore() {
+  score++;
+  scoreDisplay.textContent = "Coins: " + score;
+
+  // Check if score is a multiple of 20
+  if (score > 0 && score % 20 === 0) {
+    let messageToShow;
+    if (messageIndex < encouragingMessages.length) {
+      messageToShow = encouragingMessages[messageIndex];
+    } else {
+      messageToShow = "1337 haxor";
+    }
+    // Delay the message flash by 1 second (1000 milliseconds)
+    setTimeout(() => {
+      flashMessage(messageToShow);
+    }, 1000);
+    messageIndex++; // Increment index for the next message
+  }
+}
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") keysPressed.left = true;
@@ -377,9 +441,9 @@ function spawnCoin() {
       const y = coin.offsetTop;
       createPop(x, y);
       coin.remove();
-      score++;
+      updateScore(); // Use the new score update function
       if (!freezeAvailable) coinsSinceLastFreeze++;
-      scoreDisplay.textContent = "Coins: " + score;
+      // scoreDisplay update is now handled by updateScore()
       if (!freezeAvailable) {
         const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
         powerupDisplay.textContent = `Power-Up: ${progress}%`;
@@ -487,9 +551,9 @@ function launchProjectile(direction) {
         const y = coin.offsetTop;
         createPop(x, y);
         coin.remove();
-        score++;
+        updateScore(); // Use the new score update function
         if (!freezeAvailable) coinsSinceLastFreeze++;
-        scoreDisplay.textContent = "Coins: " + score;
+        // scoreDisplay update is now handled by updateScore()
         if (!freezeAvailable) {
           const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
           powerupDisplay.textContent = `Power-Up: ${progress}%`;
@@ -602,6 +666,7 @@ function resetGame() {
 
   // Reset game state variables
   score = 0;
+  messageIndex = 0; // Reset message index on game restart
   missedCoins = 0;
   coinsSinceLastFreeze = 0;
   freezeAvailable = false;
