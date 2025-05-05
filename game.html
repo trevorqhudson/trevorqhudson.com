@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Patreon</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      background: #111;
+      color: #eee;
+      font-family: monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #game {
+      width: 1000px;
+      height: 800px;
+      border: 4px solid #888;
+      position: relative;
+      background: #111;
+      overflow: hidden;
+    }
+.cup {
+  position: absolute;
+  width: 81px;
+  height: 81px;
+  background: #eee;
+  border: 3px solid #000;
+  border-radius: 0 0 12px 12px;
+  overflow: visible;
+}
+    .cup::before {
+      content: "";
+      position: absolute;
+      top: 20px; /* Adjusted to align with the cup */
+      left: -15px; /* Extended further out from the cup */
+      width: 15px; /* Increased width for a larger handle */
+      height: 40px; /* Increased height for a larger handle */
+      border: 3px solid #000;
+      border-radius: 10px;
+    }
+    .face {
+      position: absolute;
+      top: 20px; /* Adjusted to center vertically */
+      left: 20px; /* Adjusted to center horizontally */
+      width: 40px;
+      height: 40px;
+    }
+    .coin {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: gold;
+      border-radius: 50%;
+      border: 2px solid #aa0;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotateY(0deg); }
+      100% { transform: rotateY(360deg); }
+    }
+    @keyframes googly {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(1px, -1px); }
+      50% { transform: translate(-1px, 1px); }
+      75% { transform: translate(1px, 1px); }
+      100% { transform: translate(0, 0); }
+    }
+    .googly {
+      animation: googly 0.6s infinite;
+      transform-origin: center;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      z-index: 10;
+    }
+    #powerup {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 18px;
+      z-index: 10;
+    }
+    .flash {
+      animation: rainbow 1s linear infinite;
+    }
+    @keyframes rainbow {
+      0% { color: red; }
+      20% { color: orange; }
+      40% { color: yellow; }
+      60% { color: green; }
+      80% { color: blue; }
+      100% { color: violet; }
+    }
+    .freeze-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(200, 255, 255, 0.2);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+      z-index: 5;
+    }
+    .freeze-overlay.active {
+      opacity: 1;
+    }
+    .miss-flash {
+      animation: flash-red 0.3s ease-out;
+    }
+    @keyframes flash-red {
+      0%, 100% { background-color: #111; }
+      50% { background-color: rgba(255, 0, 0, 0.3); }
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="score">Coins: 0</div>
+    <div id="powerup">Power-Up: 0%</div>
+    <div id="misses" style="position: absolute; top: 40px; left: 10px; font-size: 18px; color: red; z-index: 10;">Misses: </div>
+    <div class="freeze-overlay" id="freezeOverlay"></div>
+    <div class="cup" id="cup">
+      <div class="face">
+        <svg viewBox="0 0 64 64" width="40" height="40">
+          <circle cx="32" cy="32" r="30" fill="white" stroke="black" stroke-width="2" />
+          <circle cx="20" cy="24" r="10" fill="white" stroke="black" stroke-width="1" />
+          <circle cx="44" cy="24" r="10" fill="white" stroke="black" stroke-width="1" />
+          <circle class="googly" cx="18" cy="22" r="3" fill="black" />
+          <circle class="googly" cx="46" cy="26" r="3" fill="black" />
+          <path d="M18 42 Q32 52 46 42 Q44 44 42 46 Q32 56 22 46 Q20 44 18 42 Z"
+            fill="red" stroke="black" stroke-width="1" />
+        </svg>
+      </div>
+    </div>
+  </div>
+  <script>
+
+const titleScreen = document.createElement("div");
+titleScreen.style.position = "absolute";
+titleScreen.style.top = "0";
+titleScreen.style.left = "0";
+titleScreen.style.width = "100%";
+titleScreen.style.height = "100%";
+titleScreen.style.background = "rgba(0, 0, 0, 0.85)";
+titleScreen.style.display = "flex";
+titleScreen.style.alignItems = "center";
+titleScreen.style.justifyContent = "center";
+titleScreen.style.zIndex = 100;
+titleScreen.innerHTML = `
+  <div style="
+    border: 4px solid white;
+    padding: 40px;
+    background: #222;
+    color: white;
+    font-family: monospace;
+    font-size: 18px;
+    text-align: center;
+    max-width: 500px;
+  ">
+    <p>Arrow keys to move</p>
+    <p>WASD to shoot saucers</p>
+    <p>Buy me a coffee?</p>
+    <p style="margin-top: 20px; font-size: 14px; opacity: 0.6;">Press any key to start</p>
+  </div>
+`;
+document.body.appendChild(titleScreen);
+document.addEventListener("keydown", dismissTitle, { once: true });
+function dismissTitle() {
+  titleScreen.remove();
+  startGame();
+}
+
+const game = document.getElementById("game");
+const cup = document.getElementById("cup");
+const scoreDisplay = document.getElementById("score");
+const powerupDisplay = document.getElementById("powerup");
+const missesDisplay = document.getElementById("misses"); // Get the new misses element
+const overlay = document.getElementById("freezeOverlay");
+
+const gameWidth = 1000;
+const gameHeight = 800;
+
+let score = 0;
+let missedCoins = 0;
+const maxMisses = 3;
+let coinsSinceLastFreeze = 0;
+let freezeAvailable = false;
+let isFrozen = false;
+let gameIsOver = false; // Flag to stop game logic
+  let cupX = gameWidth / 2;
+  let cupY = gameHeight - 100;
+let coinSpeed = 2.4;
+let coinInterval = 800;
+let keysPressed = { left: false, right: false, up: false, down: false };
+
+let speed;
+let saucerSpeed;
+function updateSpeeds() {
+  speed = coinSpeed * 1.5;
+  saucerSpeed = speed * 2;
+}
+updateSpeeds();
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") keysPressed.left = true;
+  if (e.key === "ArrowRight") keysPressed.right = true;
+  if (e.key === "ArrowUp") keysPressed.up = true;
+  if (e.key === "ArrowDown") keysPressed.down = true;
+  if (e.code === "Space" && freezeAvailable && !isFrozen) triggerFreeze();
+  if (["w", "a", "s", "d"].includes(e.key)) launchProjectile(e.key);
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowLeft") keysPressed.left = false;
+  if (e.key === "ArrowRight") keysPressed.right = false;
+  if (e.key === "ArrowUp") keysPressed.up = false;
+  if (e.key === "ArrowDown") keysPressed.down = false;
+});
+
+function updateCupPosition() {
+  if (keysPressed.left) cupX -= speed;
+  if (keysPressed.right) cupX += speed;
+  if (keysPressed.up) cupY -= speed;
+  if (keysPressed.down) cupY += speed;
+  const cupWidth = 81 + 3 * 2; // width + border
+  const cupHeight = 81 + 3 * 2; // height + border
+  cupX = Math.max(0, Math.min(gameWidth - cupWidth, cupX));
+  cupY = Math.max(0, Math.min(gameHeight - cupHeight, cupY));
+  cup.style.left = cupX + "px";
+  cup.style.top = cupY + "px";
+  requestAnimationFrame(updateCupPosition);
+}
+
+requestAnimationFrame(updateCupPosition);
+
+function updateMissDisplay() {
+  missesDisplay.textContent = "Misses: " + "X ".repeat(missedCoins);
+}
+
+function handleMiss(coin) {
+  if (gameIsOver) return; // Don't process misses if game is already over
+
+  coin.remove(); // Remove the missed coin
+  missedCoins++;
+  updateMissDisplay();
+
+  // Play miss animation
+  game.classList.add("miss-flash");
+  setTimeout(() => game.classList.remove("miss-flash"), 300);
+
+  if (missedCoins >= maxMisses) {
+    showGameOverScreen();
+  }
+}
+
+function startGame() {
+  coinSpawner = setInterval(() => {
+    if (!isFrozen && !gameIsOver) spawnCoin(); // Also check gameIsOver here
+  }, coinInterval);
+}
+
+function triggerFreeze() {
+  isFrozen = true;
+  freezeAvailable = false;
+  coinsSinceLastFreeze = 0;
+  powerupDisplay.classList.remove("flash");
+  powerupDisplay.textContent = `Power-Up: 0%`;
+  overlay.classList.add("active");
+  setTimeout(() => {
+    isFrozen = false;
+    overlay.classList.remove("active");
+  }, 2000);
+}
+
+function createPop(x, y) {
+  const pop = document.createElement("div");
+  pop.style.position = "absolute";
+  pop.style.left = x + "px";
+  pop.style.top = y + "px";
+  pop.style.width = "20px";
+  pop.style.height = "20px";
+  pop.style.borderRadius = "50%";
+  pop.style.background = "white";
+  pop.style.opacity = 1;
+  pop.style.pointerEvents = "none";
+  pop.style.zIndex = 10;
+  pop.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
+  game.appendChild(pop);
+  requestAnimationFrame(() => {
+    pop.style.transform = "scale(2)";
+    pop.style.opacity = 0;
+  });
+  setTimeout(() => pop.remove(), 300);
+}
+
+function showSpeedUpCue() {
+  const cue = document.createElement("div");
+  cue.textContent = ">>>";
+  cue.style.position = "absolute";
+  cue.style.top = "50%";
+  cue.style.left = "50%";
+  cue.style.transform = "translate(-50%, -50%)";
+  cue.style.fontSize = "80px";
+  cue.style.fontWeight = "bold";
+  cue.style.color = "rgba(255, 255, 255, 0.1)";
+  cue.style.pointerEvents = "none";
+  game.appendChild(cue);
+  setTimeout(() => cue.remove(), 500);
+}
+
+function showCoinBurstCue() {
+  const cue = document.createElement("div");
+  cue.style.position = "absolute";
+  cue.style.top = "50%";
+  cue.style.left = "50%";
+  cue.style.transform = "translate(-50%, -50%)";
+  cue.style.width = "60px";
+  cue.style.height = "60px";
+  cue.style.display = "grid";
+  cue.style.gridTemplateColumns = "1fr 1fr";
+  cue.style.gridTemplateRows = "1fr 1fr";
+  cue.style.gap = "10px";
+  cue.style.opacity = 0.1;
+  cue.style.pointerEvents = "none";
+  for (let i = 0; i < 4; i++) {
+    const dot = document.createElement("div");
+    dot.style.width = "20px";
+    dot.style.height = "20px";
+    dot.style.borderRadius = "50%";
+    dot.style.background = "white";
+    cue.appendChild(dot);
+  }
+  game.appendChild(cue);
+  setTimeout(() => cue.remove(), 500);
+}
+
+function spawnCoin() {
+  const coin = document.createElement("div");
+  coin.classList.add("coin");
+  coin.style.width = "37.5px";
+  coin.style.height = "37.5px";
+  coin.style.left = Math.random() * (gameWidth - 20) + "px";
+  coin.style.top = "0px";
+  game.appendChild(coin);
+  let coinY = 0;
+  let thisCoinSpeed = coinSpeed;
+  function update() {
+    if (gameIsOver || !document.body.contains(coin)) return; // Stop if game over or coin removed
+    if (!isFrozen) {
+      thisCoinSpeed += 0.005;
+      coinY += thisCoinSpeed;
+      coin.style.top = coinY + "px";
+    }
+    const cupRect = cup.getBoundingClientRect();
+    const coinRect = coin.getBoundingClientRect();
+    if (
+      coinRect.bottom >= cupRect.top &&
+      coinRect.top <= cupRect.bottom &&
+      coinRect.left < cupRect.right &&
+      coinRect.right > cupRect.left
+    ) {
+      const x = coin.offsetLeft;
+      const y = coin.offsetTop;
+      createPop(x, y);
+      coin.remove();
+      score++;
+      if (!freezeAvailable) coinsSinceLastFreeze++;
+      scoreDisplay.textContent = "Coins: " + score;
+      if (!freezeAvailable) {
+        const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
+        powerupDisplay.textContent = `Power-Up: ${progress}%`;
+        powerupDisplay.classList.remove("flash");
+        if (coinsSinceLastFreeze >= 20) {
+          freezeAvailable = true;
+          powerupDisplay.textContent = `PRESS SPACE`;
+          powerupDisplay.classList.add("flash");
+        }
+      }
+      if (score % 10 === 0) {
+        const upgradeType = Math.random() < 0.5 ? "speed" : "density";
+        if (upgradeType === "speed") {
+          coinSpeed += 0.5;
+          updateSpeeds();
+          showSpeedUpCue();
+        } else {
+          if (coinInterval > 200) {
+            clearInterval(coinSpawner);
+            coinInterval = Math.max(200, coinInterval - 50);
+            coinSpawner = setInterval(() => {
+              if (!isFrozen) spawnCoin();
+            }, coinInterval);
+          }
+          showCoinBurstCue();
+        }
+      }
+    }
+    if (coinY > gameHeight) {
+      handleMiss(coin); // Call handleMiss instead of just removing
+      return;
+    }
+    requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+let coinSpawner;
+let saucerCooldown = false;
+function launchProjectile(direction) {
+  if (saucerCooldown) {
+    const cdText = document.createElement("div");
+    cdText.textContent = "On CD";
+    cdText.style.position = "absolute";
+    cdText.style.left = (cupX + 10) + "px";
+    cdText.style.top = (cupY - 20) + "px";
+    cdText.style.fontSize = "18px";
+    cdText.style.fontWeight = "bold";
+    cdText.style.color = "white";
+    cdText.style.pointerEvents = "none";
+    cdText.style.opacity = 1;
+    cdText.style.transition = "opacity 0.2s ease-out";
+    game.appendChild(cdText);
+    requestAnimationFrame(() => cdText.style.opacity = 0);
+    setTimeout(() => cdText.remove(), 300);
+    return;
+  }
+  saucerCooldown = true;
+  setTimeout(() => saucerCooldown = false, 2000);
+  const saucer = document.createElement("div");
+  saucer.style.position = "absolute";
+  saucer.style.width = "67.5px";
+  saucer.style.height = "33.75px";
+  saucer.style.borderRadius = "50%";
+  saucer.style.background = "#ccc";
+  saucer.style.left = cupX + 16 + "px";
+  saucer.style.top = cupY + 23 + "px";
+  saucer.dataset.bounced = "false";
+  game.appendChild(saucer);
+  let dx = 0, dy = 0;
+  if (direction === "w") dy = -1;
+  else if (direction === "s") dy = 1;
+  else if (direction === "a") dx = -1;
+  else if (direction === "d") dx = 1;
+  function moveSaucer() {
+    if (!game.contains(saucer)) return;
+    const x = saucer.offsetLeft;
+    const y = saucer.offsetTop;
+    let newX = x + dx * saucerSpeed;
+    let newY = y + dy * saucerSpeed;
+    const bounced = saucer.dataset.bounced === "true";
+    const hitX = newX < 0 || newX > gameWidth - 67.5;
+    const hitY = newY < 0 || newY > gameHeight - 33.75;
+    if ((hitX || hitY) && bounced) return saucer.remove();
+    if ((hitX || hitY) && !bounced) {
+      if (hitX) dx *= -1;
+      if (hitY) dy *= -1;
+      saucer.dataset.bounced = "true";
+    }
+    saucer.style.left = newX + "px"; // Use calculated newX
+    saucer.style.top = newY + "px";  // Use calculated newY
+
+    // Perform collision detection immediately after position update
+    const saucerRect = saucer.getBoundingClientRect();
+    const coins = document.querySelectorAll(".coin");
+    for (let coin of coins) {
+      const coinRect = coin.getBoundingClientRect();
+      if (
+        coinRect.bottom >= saucerRect.top &&
+        coinRect.top <= saucerRect.bottom &&
+        coinRect.left < saucerRect.right &&
+        coinRect.right > saucerRect.left
+      ) {
+        const x = coin.offsetLeft;
+        const y = coin.offsetTop;
+        createPop(x, y);
+        coin.remove();
+        score++;
+        if (!freezeAvailable) coinsSinceLastFreeze++;
+        scoreDisplay.textContent = "Coins: " + score;
+        if (!freezeAvailable) {
+          const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
+          powerupDisplay.textContent = `Power-Up: ${progress}%`;
+          powerupDisplay.classList.remove("flash");
+          if (coinsSinceLastFreeze >= 20) {
+            freezeAvailable = true;
+            powerupDisplay.textContent = `PRESS SPACE`;
+            powerupDisplay.classList.add("flash");
+          }
+        }
+        // Note: The score check for upgrades was originally score % 20 === 0 here.
+        // It might make more sense to align this with the coin collection upgrade check (score % 10 === 0)
+        // or keep it separate. Keeping it as score % 20 for now to match original logic.
+        if (score % 20 === 0) {
+          const upgradeType = Math.random() < 0.5 ? "speed" : "density";
+          if (upgradeType === "speed") {
+            coinSpeed += 0.5;
+            updateSpeeds();
+            showSpeedUpCue();
+          } else {
+            if (coinInterval > 200) {
+              clearInterval(coinSpawner);
+              coinInterval = Math.max(200, coinInterval - 50);
+              coinSpawner = setInterval(() => {
+                if (!isFrozen) spawnCoin();
+              }, coinInterval);
+            }
+            showCoinBurstCue();
+          }
+        }
+      }
+    }
+
+    // Schedule the next frame update
+    requestAnimationFrame(moveSaucer);
+  }
+  requestAnimationFrame(moveSaucer); // Initial call remains the same
+}
+
+function showGameOverScreen() {
+  gameIsOver = true;
+  clearInterval(coinSpawner); // Stop spawning new coins
+
+  // Remove all existing coins
+  const coins = document.querySelectorAll(".coin");
+  coins.forEach(coin => coin.remove());
+
+  // Create Game Over overlay
+  const gameOverScreen = document.createElement("div");
+  gameOverScreen.id = "gameOverScreen"; // Add an ID for easy removal
+  gameOverScreen.style.position = "absolute";
+  gameOverScreen.style.top = "0";
+  gameOverScreen.style.left = "0";
+  gameOverScreen.style.width = "100%";
+  gameOverScreen.style.height = "100%";
+  gameOverScreen.style.background = "rgba(0, 0, 0, 0.9)";
+  gameOverScreen.style.display = "flex";
+  gameOverScreen.style.flexDirection = "column"; // Stack elements vertically
+  gameOverScreen.style.alignItems = "center";
+  gameOverScreen.style.justifyContent = "center";
+  gameOverScreen.style.zIndex = 100;
+  gameOverScreen.innerHTML = `
+    <div style="
+      border: 4px solid white;
+      padding: 40px;
+      background: #333;
+      color: white;
+      font-family: monospace;
+      font-size: 24px; /* Base size */
+      text-align: center;
+    ">
+      <h2 style="
+        font-size: 100px; /* Larger size for WASTED */
+        color: red;
+        margin-bottom: 10px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px #000; /* GTA-like shadow */
+      ">WASTED</h2>
+      <p style="font-size: 20px;">Final Score: ${score}</p>
+      <p style="font-size: 16px; margin-top: 15px;">You bought me ${(score / 3.88).toFixed(2)} coffees at current SF prices - thanks!</p>
+      <p style="margin-top: 30px; font-size: 16px; opacity: 0.7;">Press T to restart</p>
+    </div>
+  `;
+  game.appendChild(gameOverScreen);
+
+  // Add event listener for 't' key press to restart
+  document.addEventListener("keydown", handleRestartKey, { once: true });
+}
+
+function handleRestartKey(e) { // Add event parameter 'e'
+  // Check if the game over screen is present AND the key pressed was 't' (case-insensitive)
+  if (document.getElementById("gameOverScreen") && e.key.toLowerCase() === 't') {
+    resetGame();
+  } else if (document.getElementById("gameOverScreen")) {
+    // If the wrong key was pressed while the game over screen is up,
+    // re-add the listener so the *next* keypress can be checked again.
+    // The {once: true} removes it after any keydown, so we need to re-attach if it wasn't 't'.
+    document.addEventListener("keydown", handleRestartKey, { once: true });
+  }
+  // The listener removes itself automatically due to { once: true }
+}
+
+
+function resetGame() {
+  // Remove Game Over screen
+  const gameOverScreen = document.getElementById("gameOverScreen");
+  if (gameOverScreen) {
+    gameOverScreen.remove();
+  }
+
+  // Reset game state variables
+  score = 0;
+  missedCoins = 0;
+  coinsSinceLastFreeze = 0;
+  freezeAvailable = false;
+  isFrozen = false;
+  gameIsOver = false;
+  coinSpeed = 2.4; // Reset to initial speed
+  coinInterval = 800; // Reset to initial interval
+  updateSpeeds(); // Update derived speeds
+
+  // Reset UI displays
+  scoreDisplay.textContent = "Coins: 0";
+  powerupDisplay.textContent = "Power-Up: 0%";
+  powerupDisplay.classList.remove("flash");
+  missesDisplay.textContent = "Misses: "; // Clear misses
+
+  // Reset cup position (optional, but good practice)
+  cupX = gameWidth / 2;
+  cupY = gameHeight - 100;
+  cup.style.left = cupX + "px";
+  cup.style.top = cupY + "px";
+
+  // Restart the game logic
+  startGame();
+}
+
+</script>
+</body>
+</html>
