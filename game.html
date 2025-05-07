@@ -263,6 +263,19 @@ function updateScore() {
   score++;
   scoreDisplay.textContent = "Coins: " + score;
 
+  // Logic for freeze power-up
+  if (!freezeAvailable) {
+    coinsSinceLastFreeze++;
+    const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
+    powerupDisplay.textContent = `Power-Up: ${progress}%`;
+    powerupDisplay.classList.remove("flash");
+    if (coinsSinceLastFreeze >= 20) {
+      freezeAvailable = true;
+      powerupDisplay.textContent = `PRESS SPACE`;
+      powerupDisplay.classList.add("flash");
+    }
+  }
+
   // Check if score is a multiple of 20
   if (score > 0 && score % 20 === 0) {
     let messageToShow;
@@ -442,18 +455,6 @@ function spawnCoin() {
       createPop(x, y);
       coin.remove();
       updateScore(); // Use the new score update function
-      if (!freezeAvailable) coinsSinceLastFreeze++;
-      // scoreDisplay update is now handled by updateScore()
-      if (!freezeAvailable) {
-        const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
-        powerupDisplay.textContent = `Power-Up: ${progress}%`;
-        powerupDisplay.classList.remove("flash");
-        if (coinsSinceLastFreeze >= 20) {
-          freezeAvailable = true;
-          powerupDisplay.textContent = `PRESS SPACE`;
-          powerupDisplay.classList.add("flash");
-        }
-      }
       if (score % 10 === 0) {
         const upgradeType = Math.random() < 0.5 ? "speed" : "density";
         if (upgradeType === "speed") {
@@ -552,18 +553,6 @@ function launchProjectile(direction) {
         createPop(x, y);
         coin.remove();
         updateScore(); // Use the new score update function
-        if (!freezeAvailable) coinsSinceLastFreeze++;
-        // scoreDisplay update is now handled by updateScore()
-        if (!freezeAvailable) {
-          const progress = Math.min(100, Math.floor((coinsSinceLastFreeze / 20) * 100));
-          powerupDisplay.textContent = `Power-Up: ${progress}%`;
-          powerupDisplay.classList.remove("flash");
-          if (coinsSinceLastFreeze >= 20) {
-            freezeAvailable = true;
-            powerupDisplay.textContent = `PRESS SPACE`;
-            powerupDisplay.classList.add("flash");
-          }
-        }
         // Note: The score check for upgrades was originally score % 20 === 0 here.
         // It might make more sense to align this with the coin collection upgrade check (score % 10 === 0)
         // or keep it separate. Keeping it as score % 20 for now to match original logic.
