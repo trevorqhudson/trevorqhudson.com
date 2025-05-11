@@ -132,6 +132,9 @@
     <div id="score">Coins: 0</div>
     <div id="powerup">Power-Up: 0%</div>
     <div id="misses" style="position: absolute; top: 40px; left: 10px; font-size: 18px; color: red; z-index: 10;">Misses: </div>
+    <div id="musicToggleBtn" style="position: absolute; top: 70px; left: 10px; font-size: 24px; z-index: 10; cursor: pointer;">🎵</div>
+    <div id="sfxToggleBtn" style="position: absolute; top: 70px; left: 50px; font-size: 24px; z-index: 10; cursor: pointer;">🔊</div>
+    <audio id="backgroundMusic" loop></audio>
     <div class="freeze-overlay" id="freezeOverlay"></div>
     <div class="cup" id="cup">
       <div class="face">
@@ -190,6 +193,15 @@ const scoreDisplay = document.getElementById("score");
 const powerupDisplay = document.getElementById("powerup");
 const missesDisplay = document.getElementById("misses"); // Get the new misses element
 const overlay = document.getElementById("freezeOverlay");
+const backgroundMusic = document.getElementById("backgroundMusic");
+const musicToggleBtn = document.getElementById("musicToggleBtn");
+const sfxToggleBtn = document.getElementById("sfxToggleBtn");
+
+const backgroundMusicFiles = [
+  "audio/backgroundmusic/10. Battle! (Trainer Battle).mp3",
+  "audio/backgroundmusic/Undertale OST - 089 SAVE the World.mp3",
+  "audio/backgroundmusic/Undertale OST - 100 MEGALOVANIA.mp3"
+];
 
 const gameWidth = 1000;
 const gameHeight = 800;
@@ -209,6 +221,15 @@ let coinsSinceLastFreeze = 0;
 let freezeAvailable = false;
 let isFrozen = false;
 let gameIsOver = false; // Flag to stop game logic
+let isMusicEnabled = true;
+let isGameActive = false;
+let areSfxEnabled = true;
+const missSoundFiles = [
+  "audio/257780_miss1.wav",
+  "audio/438912_miss2.wav",
+  "audio/641689_miss3.wav",
+  "audio/719053_miss4.flac"
+];
   let cupX = gameWidth / 2;
   let cupY = gameHeight - 100;
 let coinSpeed = 2.4;
@@ -284,7 +305,7 @@ function updateScore() {
     } else {
       messageToShow = "1337 haxor";
     }
-    // Delay the message flash by 1 second (1000 milliseconds)
+  // Delay the message flash by 1 second (1000 milliseconds)
     setTimeout(() => {
       flashMessage(messageToShow);
     }, 1000);
@@ -292,7 +313,33 @@ function updateScore() {
   }
 }
 
+function checkAndApplyDifficultyUpgrade() {
+  // We only want to upgrade if score is a multiple of 10 and greater than 0
+  if (score > 0 && score % 10 === 0) {
+    const upgradeType = Math.random() < 0.5 ? "speed" : "density";
+    if (upgradeType === "speed") {
+      coinSpeed += 0.5;
+      updateSpeeds();
+      showSpeedUpCue();
+    } else {
+      if (coinInterval > 200) {
+        clearInterval(coinSpawner);
+        coinInterval = Math.max(200, coinInterval - 50);
+        // Ensure the new interval also checks if the game is over
+        coinSpawner = setInterval(() => {
+          if (!isFrozen && !gameIsOver) spawnCoin();
+        }, coinInterval);
+      }
+      showCoinBurstCue();
+    }
+  }
+}
+
 document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === 't') {
+    resetGame();
+    return;
+  }
   if (e.key === "ArrowLeft") keysPressed.left = true;
   if (e.key === "ArrowRight") keysPressed.right = true;
   if (e.key === "ArrowUp") keysPressed.up = true;
@@ -331,6 +378,12 @@ function updateMissDisplay() {
 function handleMiss(coin) {
   if (gameIsOver) return; // Don't process misses if game is already over
 
+  if (areSfxEnabled) {
+    const randomIndex = Math.floor(Math.random() * missSoundFiles.length);
+    const randomMissSound = missSoundFiles[randomIndex];
+    playSoundEffect(randomMissSound);
+  }
+
   coin.remove(); // Remove the missed coin
   missedCoins++;
   updateMissDisplay();
@@ -345,12 +398,29 @@ function handleMiss(coin) {
 }
 
 function startGame() {
+  isGameActive = true;
+  playRandomBackgroundMusic();
   coinSpawner = setInterval(() => {
     if (!isFrozen && !gameIsOver) spawnCoin(); // Also check gameIsOver here
   }, coinInterval);
 }
 
+function playRandomBackgroundMusic() {
+  if (!isMusicEnabled) return;
+
+  const randomIndex = Math.floor(Math.random() * backgroundMusicFiles.length);
+  const selectedMusicFile = backgroundMusicFiles[randomIndex];
+
+  backgroundMusic.src = selectedMusicFile;
+  backgroundMusic.volume = 0.6; // Set volume
+  backgroundMusic.load(); 
+  if (isGameActive) {
+    backgroundMusic.play();
+  }
+}
+
 function triggerFreeze() {
+  playSoundEffect("audio/345911_freeze.wav");
   isFrozen = true;
   freezeAvailable = false;
   coinsSinceLastFreeze = 0;
@@ -455,23 +525,8 @@ function spawnCoin() {
       createPop(x, y);
       coin.remove();
       updateScore(); // Use the new score update function
-      if (score % 10 === 0) {
-        const upgradeType = Math.random() < 0.5 ? "speed" : "density";
-        if (upgradeType === "speed") {
-          coinSpeed += 0.5;
-          updateSpeeds();
-          showSpeedUpCue();
-        } else {
-          if (coinInterval > 200) {
-            clearInterval(coinSpawner);
-            coinInterval = Math.max(200, coinInterval - 50);
-            coinSpawner = setInterval(() => {
-              if (!isFrozen) spawnCoin();
-            }, coinInterval);
-          }
-          showCoinBurstCue();
-        }
-      }
+      playSoundEffect("audio/135936_collectcoin.wav");
+      checkAndApplyDifficultyUpgrade(); // Call the centralized upgrade function
     }
     if (coinY > gameHeight) {
       handleMiss(coin); // Call handleMiss instead of just removing
@@ -500,7 +555,11 @@ function launchProjectile(direction) {
     game.appendChild(cdText);
     requestAnimationFrame(() => cdText.style.opacity = 0);
     setTimeout(() => cdText.remove(), 300);
+    playSoundEffect("audio/181907_cooldownbonk.wav");
     return;
+  }
+  if (areSfxEnabled) {
+    playSoundEffect("audio/761175_whoosh.wav");
   }
   saucerCooldown = true;
   setTimeout(() => saucerCooldown = false, 2000);
@@ -553,26 +612,8 @@ function launchProjectile(direction) {
         createPop(x, y);
         coin.remove();
         updateScore(); // Use the new score update function
-        // Note: The score check for upgrades was originally score % 20 === 0 here.
-        // It might make more sense to align this with the coin collection upgrade check (score % 10 === 0)
-        // or keep it separate. Keeping it as score % 20 for now to match original logic.
-        if (score % 20 === 0) {
-          const upgradeType = Math.random() < 0.5 ? "speed" : "density";
-          if (upgradeType === "speed") {
-            coinSpeed += 0.5;
-            updateSpeeds();
-            showSpeedUpCue();
-          } else {
-            if (coinInterval > 200) {
-              clearInterval(coinSpawner);
-              coinInterval = Math.max(200, coinInterval - 50);
-              coinSpawner = setInterval(() => {
-                if (!isFrozen) spawnCoin();
-              }, coinInterval);
-            }
-            showCoinBurstCue();
-          }
-        }
+        playSoundEffect("audio/135936_collectcoin.wav");
+        checkAndApplyDifficultyUpgrade(); // Call the centralized upgrade function
       }
     }
 
@@ -584,6 +625,8 @@ function launchProjectile(direction) {
 
 function showGameOverScreen() {
   gameIsOver = true;
+  isGameActive = false;
+  backgroundMusic.pause();
   clearInterval(coinSpawner); // Stop spawning new coins
 
   // Remove all existing coins
@@ -647,39 +690,93 @@ function handleRestartKey(e) { // Add event parameter 'e'
 
 
 function resetGame() {
-  // Remove Game Over screen
+  isGameActive = false;
+  backgroundMusic.pause();
+  backgroundMusic.currentTime = 0;
+  // Remove any existing game screens
   const gameOverScreen = document.getElementById("gameOverScreen");
-  if (gameOverScreen) {
-    gameOverScreen.remove();
-  }
+  if (gameOverScreen) gameOverScreen.remove();
+  
+  const existingTitle = document.querySelector("div[style*='z-index: 100']");
+  if (existingTitle) existingTitle.remove();
+
+  // Clear all coins and projectiles
+  const coins = document.querySelectorAll(".coin");
+  coins.forEach(coin => coin.remove());
+  
+  const saucers = document.querySelectorAll("div[style*='background: #ccc']");
+  saucers.forEach(saucer => saucer.remove());
 
   // Reset game state variables
   score = 0;
-  messageIndex = 0; // Reset message index on game restart
+  messageIndex = 0;
   missedCoins = 0;
   coinsSinceLastFreeze = 0;
   freezeAvailable = false;
   isFrozen = false;
   gameIsOver = false;
-  coinSpeed = 2.4; // Reset to initial speed
-  coinInterval = 800; // Reset to initial interval
-  updateSpeeds(); // Update derived speeds
+  coinSpeed = 2.4;
+  coinInterval = 800;
+  updateSpeeds();
 
   // Reset UI displays
   scoreDisplay.textContent = "Coins: 0";
   powerupDisplay.textContent = "Power-Up: 0%";
   powerupDisplay.classList.remove("flash");
-  missesDisplay.textContent = "Misses: "; // Clear misses
+  missesDisplay.textContent = "Misses: ";
 
-  // Reset cup position (optional, but good practice)
+  // Reset cup position
   cupX = gameWidth / 2;
   cupY = gameHeight - 100;
   cup.style.left = cupX + "px";
   cup.style.top = cupY + "px";
 
-  // Restart the game logic
-  startGame();
+  // Stop any running game loops
+  if (coinSpawner) clearInterval(coinSpawner);
+
+  // Recreate title screen
+  document.body.appendChild(titleScreen);
+  document.addEventListener("keydown", dismissTitle, { once: true });
 }
+
+function toggleMusic() {
+  isMusicEnabled = !isMusicEnabled;
+  if (isMusicEnabled) {
+    musicToggleBtn.textContent = "🎵";
+    if (isGameActive) {
+      // Check if a valid track is loaded, otherwise pick a new random one
+      if (!backgroundMusic.currentSrc || backgroundMusic.currentSrc === "" || !backgroundMusicFiles.some(file => backgroundMusic.currentSrc.includes(file))) {
+        playRandomBackgroundMusic();
+      } else {
+        backgroundMusic.volume = 0.6; // Ensure volume is set
+        backgroundMusic.play();
+      }
+    }
+  } else {
+    backgroundMusic.pause();
+    musicToggleBtn.textContent = "🔇";
+  }
+}
+
+musicToggleBtn.addEventListener("click", toggleMusic);
+
+function playSoundEffect(soundPath, volume = 1.0) {
+  if (!areSfxEnabled) return;
+  const sfx = new Audio(soundPath);
+  sfx.volume = volume;
+  sfx.play();
+}
+
+function toggleSfx() {
+  areSfxEnabled = !areSfxEnabled;
+  if (areSfxEnabled) {
+    sfxToggleBtn.textContent = "🔊";
+  } else {
+    sfxToggleBtn.textContent = "🔇";
+  }
+}
+
+sfxToggleBtn.addEventListener("click", toggleSfx);
 
 </script>
 </body>
